@@ -100,7 +100,7 @@ class CRUD
 			return $records;
 
 		} else {
-			return $response;
+			return $response['records'];
 		}
     }
 
