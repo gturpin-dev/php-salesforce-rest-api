@@ -45,6 +45,64 @@ class CRUD
 
         return json_decode($request->getBody(), true);
     }
+	
+	/**
+	 * Duplicate of query, but handle max limit of query
+	 *
+	 * @param string $query Query to execute
+	 *
+	 * @return array of records
+	 */
+    public function query_merge_limit( $query ) {
+        $url = "$this->instance_url/services/data/$this->api_version/query";
+
+        $client = new Client();
+        $request = $client->request( 'GET', $url, [
+            'headers' => [
+                'Authorization' => "OAuth $this->access_token"
+            ],
+            'query' => [
+                'q' => $query
+            ]
+        ] );
+
+		$response = json_decode( $request->getBody(), true );
+
+		// there is more than one request to get all records
+		if ( isset( $response['nextRecordsUrl'] ) && ! empty( $response['nextRecordsUrl'] ) ) {
+			$records          = $response['records'];
+			$current_response = $response;
+
+			// get all records and merge them until there is no more records
+			while ( isset( $current_response['nextRecordsUrl'] ) ) {
+				$next_url        = $current_response['nextRecordsUrl'];
+				$url             = $this->instance_url . $next_url;
+	
+				$request = $client->request( 'GET', $url, [
+					'headers' => [
+						'Authorization' => "OAuth $this->access_token"
+					],
+					'query' => [
+						'q' => $query
+					]
+				] );
+		
+				$response = json_decode( $request->getBody(), true );
+
+				if ( isset( $response['records'] ) ) {
+					$current_response = $response;
+					$records          = array_merge( $records, $response['records'] );
+				} else {
+					return $response;
+				}
+			}
+
+			return $records;
+
+		} else {
+			return $response;
+		}
+    }
 
     public function create($object, array $data)
     {
